@@ -26,18 +26,20 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+AUTHORIZED_USERNAME = os.getenv("AUTHORIZED_USERNAME")
 
 # Inicializar banco de dados
 init_db()
 
-
 # --- Teclados ---
+
 
 def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
         [
             InlineKeyboardButton("➕ Adicionar", callback_data="add_shit"),
-            InlineKeyboardButton("📊 Total de hoje", callback_data="today_total"),
+            InlineKeyboardButton(
+                "📊 Total de hoje", callback_data="today_total"),
         ],
         [InlineKeyboardButton("❌ Sair", callback_data="exit_menu")],
     ]
@@ -54,7 +56,8 @@ def get_add_shit_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("💢 Merd@!", callback_data="shit_merda"),
             InlineKeyboardButton("💢 C@r@lh0!", callback_data="shit_caraio"),
         ],
-        [InlineKeyboardButton("💢 Vai tomar no **", callback_data="shit_vai_tomar")],
+        [InlineKeyboardButton("💢 Vai tomar no **",
+                              callback_data="shit_vai_tomar")],
         [InlineKeyboardButton("💢 Put@ que P@riu!", callback_data="shit_puta")],
         [InlineKeyboardButton("📝 Outros...", callback_data="shit_custom")],
         [InlineKeyboardButton("⬅️ Voltar", callback_data="back_main")],
@@ -65,8 +68,10 @@ def get_add_shit_keyboard() -> InlineKeyboardMarkup:
 def get_after_register_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
         [
-            InlineKeyboardButton("➕ Registrar outro", callback_data="add_shit"),
-            InlineKeyboardButton("⬅️ Menu principal", callback_data="back_main"),
+            InlineKeyboardButton("➕ Registrar outro",
+                                 callback_data="add_shit"),
+            InlineKeyboardButton("⬅️ Menu principal",
+                                 callback_data="back_main"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -78,7 +83,8 @@ def get_back_main_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_exit_keyboard() -> InlineKeyboardMarkup:
-    keyboard = [[InlineKeyboardButton("🔄 Abrir menu", callback_data="back_main")]]
+    keyboard = [[InlineKeyboardButton(
+        "🔄 Abrir menu", callback_data="back_main")]]
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -100,7 +106,8 @@ async def safe_reply_text(
     query_or_update, text: str, reply_markup: InlineKeyboardMarkup = None, parse_mode: str = None
 ):
     """Envia mensagem com fallback de parse_mode (HTML -> MarkdownV2 -> plain)."""
-    target = query_or_update.message if hasattr(query_or_update, "message") else query_or_update
+    target = query_or_update.message if hasattr(
+        query_or_update, "message") else query_or_update
 
     try:
         await target.reply_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
@@ -154,10 +161,29 @@ async def safe_edit_text(
         logger.error(f"Erro ao editar sem formatação: {e}")
 
 
+def is_authorized(update: Update) -> bool:
+    """Verifica se o usuário é autorizado (@erycodedev)."""
+    user = update.effective_user
+    return user and user.username and user.username.lower() == AUTHORIZED_USERNAME.lower()
+
+
+async def send_unauthorized_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Envia mensagem de erro para usuários não autorizados."""
+    text = "❌ <b>Não autorizado</b>\n\nVocê não tem permissão para usar este bot."
+    if update.callback_query:
+        await safe_edit_text(update.callback_query, text, parse_mode="HTML")
+    else:
+        await safe_reply_text(update, text, parse_mode="HTML")
+
+
 # --- Handlers ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler do comando /start - mostra menu principal."""
+    if not is_authorized(update):
+        await send_unauthorized_message(update, context)
+        return
+
     # Limpar estado de "aguardando input customizado"
     context.user_data.pop("waiting_custom_shit", None)
 
@@ -167,6 +193,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler principal para todos os callbacks dos botões inline."""
+    if not is_authorized(update):
+        await send_unauthorized_message(update, context)
+        return
+
     query = update.callback_query
 
     try:
@@ -237,6 +267,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler para mensagens de texto (usado para 'Outros...')."""
+    if not is_authorized(update):
+        await send_unauthorized_message(update, context)
+        return
+
     # Verifica se está aguardando input customizado
     if not context.user_data.get("waiting_custom_shit"):
         # Não está no fluxo de input customizado, ignora ou responde ao /start
@@ -280,7 +314,8 @@ def main():
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CallbackQueryHandler(handle_callback))
         application.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message)
+            MessageHandler(filters.TEXT & ~filters.COMMAND,
+                           handle_text_message)
         )
         application.add_error_handler(error_handler)
 
