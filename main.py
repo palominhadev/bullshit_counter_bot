@@ -13,6 +13,9 @@ from telegram.ext import (
 )
 from telegram.error import BadRequest
 
+# Importar funções do banco de dados
+from database import init_db, add_shit_record, get_today_count, get_all_records
+
 # Configurar logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -24,42 +27,8 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# Armazenamento em memória (futuramente substituível por banco de dados)
-# Estrutura: [{"id": int, "shit": str, "datetime": datetime}]
-shit_records: list[dict] = []
-_next_id = 1
-
-
-# --- Camada de dados (fácil de substituir por DB no futuro) ---
-
-def get_next_id() -> int:
-    global _next_id
-    current = _next_id
-    _next_id += 1
-    return current
-
-
-def add_shit_record(shit_text: str) -> dict:
-    """Adiciona um novo registro de palavrão na memória."""
-    record = {
-        "id": get_next_id(),
-        "shit": shit_text,
-        "datetime": datetime.now(),
-    }
-    shit_records.append(record)
-    logger.info(f"Palavrão registrado: {record}")
-    return record
-
-
-def get_today_count() -> int:
-    """Retorna a contagem de palavrões registrados hoje."""
-    today = datetime.now().date()
-    return sum(1 for r in shit_records if r["datetime"].date() == today)
-
-
-def get_all_records() -> list[dict]:
-    """Retorna todos os registros (para debug/futuro)."""
-    return shit_records.copy()
+# Inicializar banco de dados
+init_db()
 
 
 # --- Teclados ---
@@ -67,7 +36,7 @@ def get_all_records() -> list[dict]:
 def get_main_menu_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
         [
-            InlineKeyboardButton("➕ Adicionar palavrão", callback_data="add_shit"),
+            InlineKeyboardButton("➕ Adicionar", callback_data="add_shit"),
             InlineKeyboardButton("📊 Total de hoje", callback_data="today_total"),
         ],
         [InlineKeyboardButton("❌ Sair", callback_data="exit_menu")],

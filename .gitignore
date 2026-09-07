@@ -1,5 +1,8 @@
 venv
 .env
-.crush
-__pycache__/
 AGENTS.md
+database.db
+
+.crush
+tests/
+__pycache__/
