@@ -1,0 +1,5 @@
+venv
+.env
+.crush
+__pycache__/
+AGENTS.md
